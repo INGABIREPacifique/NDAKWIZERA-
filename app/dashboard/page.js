@@ -1,274 +1,161 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCases } from '@/lib/use-cases'
 
-export default function Dashboard() {
-  const [cases, setCases] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
+const STATUS_CONFIG = {
+  pending:    { label: 'Pending',    color: 'bg-yellow-100 text-yellow-800' },
+  processing: { label: 'Processing', color: 'bg-blue-100 text-blue-800' },
+  completed:  { label: 'Completed',  color: 'bg-green-100 text-green-800' },
+  failed:     { label: 'Failed',     color: 'bg-red-100 text-red-800' },
+  expired:    { label: 'Expired',    color: 'bg-gray-100 text-gray-500' },
+}
 
-  useEffect(() => {
-    fetchCases()
-  }, [])
+export default function DashboardPage() {
+  const router = useRouter()
+  const { cases, loading, error, fetch: loadCases } = useCases()
 
-  const fetchCases = async () => {
-    setLoading(true)
-    try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      )
-      
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      setCases(data || [])
-    } catch (error) {
-      console.error('Error fetching cases:', error)
-      setMessage('❌ Error loading cases')
-    }
-    setLoading(false)
-  }
+  useEffect(() => { loadCases() }, [])
 
-  const updateCaseStatus = async (caseId, status) => {
-    try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      )
-      
-      let paymentData = {}
-      
-      if (status === 'approved') {
-        const paymentCode = 'PAY-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase()
-        const amount = 5000
-        
-        const { data: payment, error: paymentError } = await supabase
-          .from('payments')
-          .insert({
-            case_id: caseId,
-            payment_code: paymentCode,
-            amount: amount,
-            status: 'pending',
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single()
-        
-        if (paymentError) throw paymentError
-        
-        paymentData = {
-          payment_code: paymentCode,
-          amount: amount
-        }
-      }
-      
-      const { error } = await supabase
-        .from('cases')
-        .update({ 
-          status: status,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', caseId)
-      
-      if (error) throw error
-      
-      const message = status === 'approved' 
-        ? `✅ Case approved! Payment code: ${paymentData.payment_code} | Amount: ${paymentData.amount} RWF`
-        : `✅ Case ${status} successfully!`
-      
-      setMessage(message)
-      fetchCases()
-    } catch (error) {
-      console.error('Error updating case:', error)
-      setMessage('❌ Error updating case')
-    }
-  }
+  const activeCases   = cases.filter(c => !c.is_expired && c.status !== 'expired')
+  const expiredCases  = cases.filter(c => c.is_expired || c.status === 'expired')
 
-  const getStatusBadge = (status) => {
-    const colors = {
-      submitted: '#ff9800',
-      approved: '#4caf50',
-      denied: '#f44336',
-      paid: '#2196f3',
-      completed: '#9c27b0',
-      expired: '#757575'
-    }
-    return {
-      background: colors[status] || '#757575',
-      color: 'white',
-      padding: '4px 12px',
-      borderRadius: '12px',
-      fontSize: '12px',
-      fontWeight: '600'
-    }
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">My Cases</h1>
+            <p className="text-sm text-gray-400">Verification requests and reports</p>
+          </div>
+          <button
+            onClick={() => router.push('/request')}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+          >
+            + New Request
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6">
+
+        {loading && (
+          <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+            <span className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mr-2" />
+            Loading your cases…
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+            {error} — <button onClick={loadCases} className="underline">Retry</button>
+          </div>
+        )}
+
+        {!loading && !error && cases.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+              📋
+            </div>
+            <h3 className="text-gray-700 font-medium mb-1">No cases yet</h3>
+            <p className="text-gray-400 text-sm mb-4">Submit your first verification request to get started.</p>
+            <button
+              onClick={() => router.push('/request')}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+            >
+              Submit a Request
+            </button>
+          </div>
+        )}
+
+        {/* Active cases */}
+        {activeCases.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+              Active Cases ({activeCases.length})
+            </h2>
+            <div className="space-y-3">
+              {activeCases.map(c => <CaseCard key={c.id} case_={c} router={router} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Expired cases */}
+        {expiredCases.length > 0 && (
+          <section>
+            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+              Expired ({expiredCases.length})
+            </h2>
+            <div className="space-y-3 opacity-60">
+              {expiredCases.map(c => <CaseCard key={c.id} case_={c} router={router} />)}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CaseCard({ case_: c, router }) {
+  const cfg = STATUS_CONFIG[c.is_expired ? 'expired' : c.status] || STATUS_CONFIG.pending
+  const isViewable = c.status === 'completed' && !c.is_expired
+
+  const expiresIn = () => {
+    if (!c.expires_at) return null
+    const diff = new Date(c.expires_at) - new Date()
+    if (diff <= 0) return 'Expired'
+    const hours = Math.floor(diff / 3_600_000)
+    const mins  = Math.floor((diff % 3_600_000) / 60_000)
+    return hours > 0 ? `${hours}h ${mins}m remaining` : `${mins}m remaining`
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '40px auto', padding: '20px' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 30,
-        borderBottom: '3px solid #1a3a5c',
-        paddingBottom: 20
-      }}>
-        <div>
-          <h1 style={{ color: '#1a3a5c', margin: 0 }}>⚖️ Legal Reviewer Dashboard</h1>
-          <p style={{ color: '#666', margin: '5px 0 0 0' }}>Manage and review asset verification requests</p>
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 flex items-start justify-between gap-4">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-mono text-sm font-semibold text-gray-700">{c.case_code}</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
         </div>
-        <button
-          onClick={fetchCases}
-          style={{
-            padding: '10px 20px',
-            background: '#1a3a5c',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            cursor: 'pointer'
-          }}
-        >
-          Refresh
-        </button>
+        <p className="text-sm text-gray-800 font-medium truncate">{c.subject_name}</p>
+        <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+          <span>{c.report_type === 'full' ? 'Full Report' : c.report_type}</span>
+          <span>·</span>
+          <span>{c.institutions?.join(', ')}</span>
+          <span>·</span>
+          <span>{new Date(c.created_at).toLocaleDateString()}</span>
+        </div>
+        {c.expires_at && (
+          <p className={`text-xs mt-1 ${c.is_expired ? 'text-red-400' : 'text-amber-500'}`}>
+            {expiresIn()}
+          </p>
+        )}
       </div>
 
-      {message && (
-        <div style={{ 
-          padding: 15, 
-          marginBottom: 20, 
-          background: message.includes('✅') ? '#e8f5e9' : '#fbe9e7',
-          borderRadius: 8,
-          border: `1px solid ${message.includes('✅') ? '#4caf50' : '#f44336'}`
-        }}>
-          {message}
-        </div>
-      )}
-
-      {/* Stats */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-        gap: 15,
-        marginBottom: 30
-      }}>
-        {['submitted', 'approved', 'denied', 'paid', 'completed'].map((status) => {
-          const count = cases.filter(c => c.status === status).length
-          return (
-            <div key={status} style={{
-              padding: 15,
-              background: 'white',
-              borderRadius: 8,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              textAlign: 'center',
-              borderBottom: `3px solid ${getStatusBadge(status).background}`
-            }}>
-              <div style={{ fontSize: 24, fontWeight: '700', color: '#1a3a5c' }}>{count}</div>
-              <div style={{ fontSize: 12, color: '#666', textTransform: 'capitalize' }}>{status}</div>
-            </div>
-          )
-        })}
+      <div className="flex flex-col gap-2 flex-shrink-0">
+        {isViewable && (
+          <button
+            onClick={() => router.push(`/report/${c.id}`)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            View Report
+          </button>
+        )}
+        {c.is_expired && (
+          <button
+            onClick={() => router.push('/request')}
+            className="border border-gray-200 hover:border-gray-300 text-gray-600 text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            Re-request
+          </button>
+        )}
+        {c.status === 'pending' && (
+          <span className="text-xs text-gray-400 text-right">Processing…</span>
+        )}
       </div>
-
-      {/* Cases Table */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: '#666' }}>Loading cases...</div>
-      ) : cases.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, color: '#666', background: '#f8f9fa', borderRadius: 8 }}>
-          No cases found. Submit a case first at /request
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            background: 'white',
-            borderRadius: 8,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-          }}>
-            <thead>
-              <tr style={{ background: '#f8f9fa' }}>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Case Code</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>User</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Asset Type</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Purpose</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Status</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Actions</th>
-                <th style={{ padding: 12, textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Document</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cases.map((caseItem) => (
-                <tr key={caseItem.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: 12, fontWeight: '600' }}>{caseItem.case_code}</td>
-                  <td style={{ padding: 12 }}>{caseItem.user_id || 'N/A'}</td>
-                  <td style={{ padding: 12, textTransform: 'capitalize' }}>{caseItem.asset_type}</td>
-                  <td style={{ padding: 12, textTransform: 'capitalize' }}>{caseItem.purpose}</td>
-                  <td style={{ padding: 12 }}>{caseItem.document_name || 'No file'}</td>
-                  <td style={{ padding: 12 }}>
-                    <span style={getStatusBadge(caseItem.status)}>
-                      {caseItem.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: 12 }}>
-                    {caseItem.status === 'submitted' && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => updateCaseStatus(caseItem.id, 'approved')}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#4caf50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            fontSize: 12
-                          }}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => updateCaseStatus(caseItem.id, 'denied')}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#f44336',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            fontSize: 12
-                          }}
-                        >
-                          Deny
-                        </button>
-                      </div>
-                    )}
-                    {caseItem.status === 'approved' && (
-                      <span style={{ fontSize: 12, color: '#2196f3' }}>⏳ Awaiting Payment</span>
-                    )}
-                    {caseItem.status === 'paid' && (
-                      <span style={{ fontSize: 12, color: '#9c27b0' }}>🔄 Processing</span>
-                    )}
-                    {caseItem.status === 'completed' && (
-                      <span style={{ fontSize: 12, color: '#4caf50' }}>✅ Complete</span>
-                    )}
-                    {caseItem.status === 'denied' && (
-                      <span style={{ fontSize: 12, color: '#f44336' }}>❌ Denied</span>
-                    )}
-                    {caseItem.status === 'expired' && (
-                      <span style={{ fontSize: 12, color: '#757575' }}>⏰ Expired</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   )
 }
