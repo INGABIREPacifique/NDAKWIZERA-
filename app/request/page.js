@@ -1,11 +1,12 @@
 'use client'
+import { Suspense } from 'react'
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 
-export default function RequestPage() {
+function RequestPageInner() {
   const searchParams = useSearchParams()
   const serviceSlug = searchParams.get('service') || 'property'
 
@@ -235,5 +236,13 @@ export default function RequestPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RequestPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RequestPageInner />
+    </Suspense>
   )
 }
