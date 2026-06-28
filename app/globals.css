@@ -1,26 +1,54 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --ink: #0d1f3c;
+  --ink-soft: #1a2e50;
+  --ink-mid: #243c66;
+  --gold: #c8963c;
+  --gold-light: #e3b96a;
+  --gold-deep: #a3742a;
+  --green: #2e6b4f;
+  --green-bg: #e3ede7;
+  --clay: #9c3b2c;
+  --clay-bg: #f1e3df;
+  --bg-main: #ffffff;
+  --bg-subtle: #f7f8fa;
+  --bg-card: #ffffff;
+  --border-light: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-faint: #9ca3af;
+  --parchment: #f5efe0;
+  --parchment-dim: #ede4cc;
+  --white: #f9f7f3;
+  --text-on-dark: #d4cfc5;
+  --text-faint-dark: #7e8aab;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+.dark-section {
+  background: var(--ink);
+  color: var(--white);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-light);
+}
+html {
+  scroll-behavior: smooth;
 }
