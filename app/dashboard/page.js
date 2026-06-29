@@ -5,90 +5,134 @@ import { useRouter } from 'next/navigation'
 import { useCases } from '@/lib/use-cases'
 
 const STATUS_CONFIG = {
-  pending:    { label: 'Pending',    color: 'bg-yellow-100 text-yellow-800' },
-  processing: { label: 'Processing', color: 'bg-blue-100 text-blue-800' },
-  completed:  { label: 'Completed',  color: 'bg-green-100 text-green-800' },
-  failed:     { label: 'Failed',     color: 'bg-red-100 text-red-800' },
-  expired:    { label: 'Expired',    color: 'bg-gray-100 text-gray-500' },
+  pending:    { label: 'Pending',    color: '#92400e', bg: '#fef3c7' },
+  processing: { label: 'Processing', color: '#1e40af', bg: '#dbeafe' },
+  completed:  { label: 'Completed',  color: '#166534', bg: '#dcfce7' },
+  failed:     { label: 'Failed',     color: '#991b1b', bg: '#fee2e2' },
+  expired:    { label: 'Expired',    color: '#6b7280', bg: '#f3f4f6' },
 }
 
 export default function DashboardPage() {
   const router = useRouter()
   const { cases, loading, error, fetch: loadCases } = useCases()
+  const [user, setUser] = useState(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
-  useEffect(() => { loadCases() }, [])
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => {
+      if (r.status === 401) {
+        router.replace('/login')
+        return null
+      }
+      return r.json()
+    }).then(data => {
+      if (data?.user) setUser(data.user)
+    })
+    loadCases()
+  }, [])
 
-  const activeCases   = cases.filter(c => !c.is_expired && c.status !== 'expired')
-  const expiredCases  = cases.filter(c => c.is_expired || c.status === 'expired')
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.replace('/login')
+  }
+
+  const activeCases  = cases.filter(c => !c.is_expired && c.status !== 'expired')
+  const expiredCases = cases.filter(c => c.is_expired || c.status === 'expired')
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">My Cases</h1>
-            <p className="text-sm text-gray-400">Verification requests and reports</p>
+    <div style={{ minHeight: '100vh', background: '#f8f3e8', fontFamily: "'Inter', sans-serif" }}>
+
+      <div style={{ background: '#10203c', borderBottom: '1px solid rgba(200,150,60,0.2)', padding: '0 20px' }}>
+        <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: '22px', fontWeight: 700, color: '#f8f3e8' }}>
+              Ndak<span style={{ color: '#c8963c' }}>w</span>izera
+            </div>
+            {user && (
+              <span style={{ fontSize: '12px', color: '#8d97b6', fontFamily: "'JetBrains Mono', monospace" }}>
+                / {user.fullName}
+              </span>
+            )}
           </div>
-          <button
-            onClick={() => router.push('/request')}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-          >
-            + New Request
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => router.push('/request')}
+              style={{ padding: '8px 16px', background: '#a3742a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+              + New Request
+            </button>
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              style={{ padding: '8px 14px', background: 'transparent', color: '#8d97b6', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+              {loggingOut ? '…' : 'Log out'}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '32px 20px' }}>
+
+        {user && (
+          <div style={{ marginBottom: '28px' }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '26px', fontWeight: 600, color: '#10203c', margin: '0 0 4px' }}>
+              Welcome back, {user.fullName?.split(' ')[0]}
+            </h1>
+            <p style={{ fontSize: '13px', color: '#6b6256', margin: 0 }}>
+              Your verification requests and report access windows
+            </p>
+          </div>
+        )}
 
         {loading && (
-          <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
-            <span className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mr-2" />
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#9c9286', fontSize: '14px' }}>
+            <div style={{ width: '28px', height: '28px', border: '3px solid #dcd2bc', borderTopColor: '#a3742a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             Loading your cases…
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-            {error} — <button onClick={loadCases} className="underline">Retry</button>
+          <div style={{ background: '#f1e3df', border: '1px solid #e2bab3', borderRadius: '12px', padding: '16px', color: '#9c3b2c', fontSize: '13px', marginBottom: '20px' }}>
+            {error} —{' '}
+            <button onClick={loadCases} style={{ color: '#9c3b2c', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              Retry
+            </button>
           </div>
         )}
 
         {!loading && !error && cases.length === 0 && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-              📋
-            </div>
-            <h3 className="text-gray-700 font-medium mb-1">No cases yet</h3>
-            <p className="text-gray-400 text-sm mb-4">Submit your first verification request to get started.</p>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+            <h3 style={{ fontFamily: "'Fraunces', serif", color: '#10203c', marginBottom: '6px' }}>No cases yet</h3>
+            <p style={{ color: '#9c9286', fontSize: '14px', marginBottom: '24px' }}>
+              Submit your first verification request to get started.
+            </p>
             <button
               onClick={() => router.push('/request')}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
-            >
+              style={{ padding: '12px 24px', background: '#a3742a', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
               Submit a Request
             </button>
           </div>
         )}
 
-        {/* Active cases */}
         {activeCases.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <section style={{ marginBottom: '36px' }}>
+            <h2 style={{ fontSize: '11px', fontWeight: 600, color: '#9c9286', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
               Active Cases ({activeCases.length})
             </h2>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {activeCases.map(c => <CaseCard key={c.id} case_={c} router={router} />)}
             </div>
           </section>
         )}
 
-        {/* Expired cases */}
         {expiredCases.length > 0 && (
-          <section>
-            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <section style={{ opacity: 0.65 }}>
+            <h2 style={{ fontSize: '11px', fontWeight: 600, color: '#9c9286', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
               Expired ({expiredCases.length})
             </h2>
-            <div className="space-y-3 opacity-60">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {expiredCases.map(c => <CaseCard key={c.id} case_={c} router={router} />)}
             </div>
           </section>
@@ -99,61 +143,65 @@ export default function DashboardPage() {
 }
 
 function CaseCard({ case_: c, router }) {
-  const cfg = STATUS_CONFIG[c.is_expired ? 'expired' : c.status] || STATUS_CONFIG.pending
+  const key = c.is_expired ? 'expired' : (c.status || 'pending')
+  const cfg = STATUS_CONFIG[key] || STATUS_CONFIG.pending
   const isViewable = c.status === 'completed' && !c.is_expired
 
   const expiresIn = () => {
     if (!c.expires_at) return null
-    const diff = new Date(c.expires_at) - new Date()
+    const diff = new Date(c.expires_at) - Date.now()
     if (diff <= 0) return 'Expired'
-    const hours = Math.floor(diff / 3_600_000)
-    const mins  = Math.floor((diff % 3_600_000) / 60_000)
-    return hours > 0 ? `${hours}h ${mins}m remaining` : `${mins}m remaining`
+    const h = Math.floor(diff / 3_600_000)
+    const m = Math.floor((diff % 3_600_000) / 60_000)
+    return h > 0 ? `${h}h ${m}m remaining` : `${m}m remaining`
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 flex items-start justify-between gap-4">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-mono text-sm font-semibold text-gray-700">{c.case_code}</span>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
+    <div style={{
+      background: '#fff', border: '1px solid #dcd2bc', borderRadius: '14px',
+      padding: '18px 20px', display: 'flex', alignItems: 'flex-start',
+      justifyContent: 'space-between', gap: '16px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: '#10203c' }}>
+            {c.case_code}
+          </span>
+          <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: cfg.bg, color: cfg.color, letterSpacing: '0.03em' }}>
             {cfg.label}
           </span>
         </div>
-        <p className="text-sm text-gray-800 font-medium truncate">{c.subject_name}</p>
-        <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-          <span>{c.report_type === 'full' ? 'Full Report' : c.report_type}</span>
-          <span>·</span>
-          <span>{c.institutions?.join(', ')}</span>
-          <span>·</span>
-          <span>{new Date(c.created_at).toLocaleDateString()}</span>
-        </div>
+        <p style={{ fontSize: '14px', color: '#241f18', fontWeight: 500, margin: '0 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {c.subject_name}
+        </p>
+        <p style={{ fontSize: '11.5px', color: '#9c9286', margin: 0 }}>
+          {c.report_type === 'full' ? 'Full Report' : c.report_type}
+          {' · '}{c.institutions?.join(', ')}
+          {' · '}{new Date(c.created_at).toLocaleDateString('en-GB')}
+        </p>
         {c.expires_at && (
-          <p className={`text-xs mt-1 ${c.is_expired ? 'text-red-400' : 'text-amber-500'}`}>
+          <p style={{ fontSize: '11.5px', marginTop: '4px', color: c.is_expired ? '#9c3b2c' : '#a3742a', fontFamily: "'JetBrains Mono', monospace" }}>
             {expiresIn()}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 flex-shrink-0">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
         {isViewable && (
-          <button
-            onClick={() => router.push(`/report/${c.id}`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
-          >
+          <button onClick={() => router.push(`/report/${c.id}`)}
+            style={{ padding: '8px 14px', background: '#2e6b4f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
             View Report
           </button>
         )}
         {c.is_expired && (
-          <button
-            onClick={() => router.push('/request')}
-            className="border border-gray-200 hover:border-gray-300 text-gray-600 text-xs font-medium px-4 py-2 rounded-lg transition-colors"
-          >
+          <button onClick={() => router.push('/request')}
+            style={{ padding: '8px 14px', background: 'transparent', color: '#6b6256', border: '1px solid #dcd2bc', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
             Re-request
           </button>
         )}
-        {c.status === 'pending' && (
-          <span className="text-xs text-gray-400 text-right">Processing…</span>
+        {c.status === 'pending' && !c.is_expired && (
+          <span style={{ fontSize: '11px', color: '#9c9286', textAlign: 'right' }}>Processing…</span>
         )}
       </div>
     </div>

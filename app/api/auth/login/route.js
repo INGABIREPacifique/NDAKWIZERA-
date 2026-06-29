@@ -4,61 +4,63 @@ import { NextResponse } from 'next/server'
 export async function POST(request) {
   try {
     const { email, phone } = await request.json()
-    
-    if (!email || !phone) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Email and phone are required' 
-      })
+
+    if (!email?.trim() || !phone?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Email and phone are required.' },
+        { status: 400 }
+      )
     }
-    
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     )
-    
-    // Check if user exists
+
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('phone', phone)
-      .single()
-    
+      .select('id, email, phone, full_name, role')
+      .eq('email', email.trim().toLowerCase())
+      .eq('phone', phone.trim())
+      .maybeSingle()
+
     if (userError || !user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'No account found with these credentials' 
-      })
+      return NextResponse.json(
+        { success: false, error: 'No account found with these credentials. Please sign up first.' },
+        { status: 404 }
+      )
     }
-    
-    // Generate OTP
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
-    
-    // Store OTP in auth_sessions
-    const { data, error } = await supabase
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+    await supabase
+      .from('auth_sessions')
+      .delete()
+      .eq('phone_number', phone.trim())
+
+    const { error: sessionErr } = await supabase
       .from('auth_sessions')
       .insert({
-        phone_number: phone,
-        otp_code: otp,
-        otp_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        status: 'pending',
-        metadata: { email }
+        phone_number:   phone.trim(),
+        otp_code:       otp,
+        otp_expires_at: expiresAt,
+        status:         'pending',
+        metadata:       { userId: user.id, action: 'login' },
       })
-      .select()
-      .single()
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message })
+
+    if (sessionErr) {
+      console.error('[login] auth_sessions insert:', sessionErr)
+      return NextResponse.json(
+        { success: false, error: 'Failed to generate OTP. Please try again.' },
+        { status: 500 }
+      )
     }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'OTP sent',
-      otp: otp // Mock OTP for testing
-    })
-    
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message })
+
+    return NextResponse.json({ success: true, otp, message: 'OTP sent to ' + phone })
+
+  } catch (err) {
+    console.error('[login] unexpected:', err)
+    return NextResponse.json({ success: false, error: 'Server error.' }, { status: 500 })
   }
 }

@@ -4,60 +4,62 @@ import { NextResponse } from 'next/server'
 export async function POST(request) {
   try {
     const { fullName, email, phone } = await request.json()
-    
-    if (!fullName || !email || !phone) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'All fields are required' 
-      })
+
+    if (!fullName?.trim() || !email?.trim() || !phone?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Full name, email, and phone are all required.' },
+        { status: 400 }
+      )
     }
-    
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-    
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     )
-    
-    // Check if user exists
-    const { data: existingUser } = await supabase
+
+    const { data: existing } = await supabase
       .from('users')
-      .select('*')
-      .eq('phone', phone)
-      .single()
-    
-    if (existingUser) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User already exists with this phone number' 
-      })
+      .select('id')
+      .or(`phone.eq.${phone.trim()},email.eq.${email.trim().toLowerCase()}`)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: 'An account with this phone or email already exists. Please log in.' },
+        { status: 409 }
+      )
     }
-    
-    // Store OTP in auth_sessions
-    const { data, error } = await supabase
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+    await supabase
+      .from('auth_sessions')
+      .delete()
+      .eq('phone_number', phone.trim())
+
+    const { error: sessionErr } = await supabase
       .from('auth_sessions')
       .insert({
-        phone_number: phone,
-        otp_code: otp,
-        otp_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        status: 'pending',
-        metadata: { fullName, email } // Store signup data temporarily
+        phone_number:   phone.trim(),
+        otp_code:       otp,
+        otp_expires_at: expiresAt,
+        status:         'pending',
+        metadata:       { fullName: fullName.trim(), email: email.trim().toLowerCase(), action: 'signup' },
       })
-      .select()
-      .single()
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message })
+
+    if (sessionErr) {
+      console.error('[signup] auth_sessions insert:', sessionErr)
+      return NextResponse.json(
+        { success: false, error: 'Failed to generate OTP. Please try again.' },
+        { status: 500 }
+      )
     }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'OTP sent',
-      otp: otp // Mock OTP for testing
-    })
-    
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message })
+
+    return NextResponse.json({ success: true, otp, message: 'OTP sent to ' + phone })
+
+  } catch (err) {
+    console.error('[signup] unexpected:', err)
+    return NextResponse.json({ success: false, error: 'Server error.' }, { status: 500 })
   }
 }
