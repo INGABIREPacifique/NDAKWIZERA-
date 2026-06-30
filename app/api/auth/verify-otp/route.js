@@ -41,20 +41,19 @@ export async function POST(request) {
       .update({ status: 'used' })
       .eq('id', session.id)
 
-    const { action, userId, fullName, email } = session.metadata || {}
-
+    const { action, userId, fullName, nationalId } = session.metadata || {}
     let user
 
     if (action === 'signup') {
       const { data: newUser, error: insertErr } = await supabase
         .from('users')
         .insert({
-          full_name: fullName,
-          email:     email,
-          phone:     phone.trim(),
-          role:      'user',
+          full_name:    fullName,
+          phone_number: phone.trim(),
+          national_id:  nationalId || null,
+          is_verified:  true,
         })
-        .select('id, email, phone, full_name, role')
+        .select('id, full_name, phone_number, national_id, role')
         .single()
 
       if (insertErr) {
@@ -65,11 +64,10 @@ export async function POST(request) {
         )
       }
       user = newUser
-
     } else {
       const { data: existingUser, error: fetchErr } = await supabase
         .from('users')
-        .select('id, email, phone, full_name, role')
+        .select('id, full_name, phone_number, national_id, role')
         .eq('id', userId)
         .single()
 
@@ -79,6 +77,12 @@ export async function POST(request) {
           { status: 404 }
         )
       }
+
+      await supabase
+        .from('users')
+        .update({ is_verified: true, updated_at: new Date().toISOString() })
+        .eq('id', existingUser.id)
+
       user = existingUser
     }
 
@@ -88,11 +92,11 @@ export async function POST(request) {
       success: true,
       message: action === 'signup' ? 'Account created successfully!' : 'Login successful!',
       user: {
-        id:       user.id,
-        fullName: user.full_name,
-        email:    user.email,
-        phone:    user.phone,
-        role:     user.role,
+        id:          user.id,
+        fullName:    user.full_name,
+        phoneNumber: user.phone_number,
+        nationalId:  user.national_id,
+        role:        user.role,
       },
     })
 
