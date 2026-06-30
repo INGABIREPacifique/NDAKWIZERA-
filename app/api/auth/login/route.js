@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request) {
   try {
-    const { email, phone } = await request.json()
+    const { phone } = await request.json()
 
-    if (!email?.trim() || !phone?.trim()) {
+    if (!phone?.trim()) {
       return NextResponse.json(
-        { success: false, error: 'Email and phone are required.' },
+        { success: false, error: 'Phone number is required.' },
         { status: 400 }
       )
     }
@@ -19,14 +19,13 @@ export async function POST(request) {
 
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, phone, full_name, role')
-      .eq('email', email.trim().toLowerCase())
-      .eq('phone', phone.trim())
+      .select('id, full_name, phone_number, national_id, role')
+      .eq('phone_number', phone.trim())
       .maybeSingle()
 
     if (userError || !user) {
       return NextResponse.json(
-        { success: false, error: 'No account found with these credentials. Please sign up first.' },
+        { success: false, error: 'No account found with this phone number. Please sign up first.' },
         { status: 404 }
       )
     }
