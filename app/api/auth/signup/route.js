@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request) {
   try {
-    const { fullName, email, phone } = await request.json()
+    const { fullName, phone, nationalId } = await request.json()
 
-    if (!fullName?.trim() || !email?.trim() || !phone?.trim()) {
+    if (!fullName?.trim() || !phone?.trim()) {
       return NextResponse.json(
-        { success: false, error: 'Full name, email, and phone are all required.' },
+        { success: false, error: 'Full name and phone number are required.' },
         { status: 400 }
       )
     }
@@ -20,12 +20,12 @@ export async function POST(request) {
     const { data: existing } = await supabase
       .from('users')
       .select('id')
-      .or(`phone.eq.${phone.trim()},email.eq.${email.trim().toLowerCase()}`)
+      .eq('phone_number', phone.trim())
       .maybeSingle()
 
     if (existing) {
       return NextResponse.json(
-        { success: false, error: 'An account with this phone or email already exists. Please log in.' },
+        { success: false, error: 'An account with this phone number already exists. Please log in.' },
         { status: 409 }
       )
     }
@@ -45,7 +45,11 @@ export async function POST(request) {
         otp_code:       otp,
         otp_expires_at: expiresAt,
         status:         'pending',
-        metadata:       { fullName: fullName.trim(), email: email.trim().toLowerCase(), action: 'signup' },
+        metadata: {
+          fullName:   fullName.trim(),
+          nationalId: nationalId?.trim() || null,
+          action:     'signup',
+        },
       })
 
     if (sessionErr) {
