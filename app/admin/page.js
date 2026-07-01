@@ -21,12 +21,12 @@ const TABS = [
 
 export default function AdminPage() {
   const router = useRouter()
-  const [user, setUser]     = useState(null)
-  const [cases, setCases]   = useState([])
+  const [user, setUser]       = useState(null)
+  const [cases, setCases]     = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('pending')
-  const [acting, setActing] = useState(null) // case id being acted on
-  const [toast, setToast]   = useState(null)
+  const [acting, setActing]   = useState(null)
+  const [toast, setToast]     = useState(null)
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
@@ -34,7 +34,7 @@ export default function AdminPage() {
   }
 
   const loadUser = useCallback(async () => {
-    const res = await fetch('/api/auth/me')
+    const res  = await fetch('/api/auth/me')
     if (res.status === 401) { router.replace('/login'); return }
     const data = await res.json()
     if (!data.user || (data.user.role !== 'admin' && data.user.role !== 'legal_reviewer')) {
@@ -47,7 +47,7 @@ export default function AdminPage() {
   const loadCases = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/cases?status=${activeTab}`, { credentials: 'include' })
+      const res  = await fetch(`/api/admin/cases?status=${activeTab}`, { credentials: 'include' })
       const data = await res.json()
       if (data.success) setCases(data.cases)
     } catch {
@@ -62,7 +62,7 @@ export default function AdminPage() {
   const handleAction = async (caseId, action) => {
     setActing(caseId)
     try {
-      const res = await fetch(`/api/admin/cases/${caseId}`, {
+      const res  = await fetch(`/api/admin/cases/${caseId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -70,7 +70,8 @@ export default function AdminPage() {
       })
       const data = await res.json()
       if (data.success) {
-        showToast(`Case ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
+        const labels = { approve: 'approved', reject: 'rejected', complete: 'marked complete' }
+        showToast(`Case ${labels[action] || action} successfully`)
         loadCases()
       } else {
         showToast(data.error || 'Action failed', 'error')
@@ -96,7 +97,6 @@ export default function AdminPage() {
           padding: '12px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
           background: toast.type === 'success' ? '#2e6b4f' : '#9c3b2c',
           color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          animation: 'fadeIn 0.2s ease',
         }}>
           {toast.type === 'success' ? '✓ ' : '✗ '}{toast.msg}
         </div>
@@ -124,8 +124,6 @@ export default function AdminPage() {
       </div>
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px 20px' }}>
-
-        {/* Header */}
         <div style={{ marginBottom: '28px' }}>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '26px', fontWeight: 600, color: '#10203c', margin: '0 0 4px' }}>
             Case Management
@@ -136,11 +134,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid #dcd2bc', paddingBottom: '0' }}>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid #dcd2bc' }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               style={{
-                padding: '8px 16px', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 400,
+                padding: '8px 16px', fontSize: '13px',
+                fontWeight: activeTab === tab.key ? 600 : 400,
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: activeTab === tab.key ? '#a3742a' : '#6b6256',
                 borderBottom: activeTab === tab.key ? '2px solid #a3742a' : '2px solid transparent',
@@ -149,17 +148,17 @@ export default function AdminPage() {
               {tab.label}
             </button>
           ))}
-          <button onClick={loadCases} style={{ marginLeft: 'auto', padding: '6px 12px', background: 'transparent', border: '1px solid #dcd2bc', borderRadius: '6px', fontSize: '12px', color: '#6b6256', cursor: 'pointer', marginBottom: '4px' }}>
+          <button onClick={loadCases}
+            style={{ marginLeft: 'auto', padding: '6px 12px', background: 'transparent', border: '1px solid #dcd2bc', borderRadius: '6px', fontSize: '12px', color: '#6b6256', cursor: 'pointer', marginBottom: '4px' }}>
             ↻ Refresh
           </button>
         </div>
 
-        {/* Cases */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#9c9286' }}>
             <div style={{ width: '28px', height: '28px', border: '3px solid #dcd2bc', borderTopColor: '#a3742a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             Loading cases…
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           </div>
         ) : cases.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#9c9286', fontSize: '14px' }}>
@@ -167,7 +166,9 @@ export default function AdminPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {cases.map(c => <AdminCaseCard key={c.id} case_={c} acting={acting} onAction={handleAction} />)}
+            {cases.map(c => (
+              <AdminCaseCard key={c.id} case_={c} acting={acting} onAction={handleAction} />
+            ))}
           </div>
         )}
       </div>
@@ -177,17 +178,17 @@ export default function AdminPage() {
 
 function AdminCaseCard({ case_: c, acting, onAction }) {
   const [expanded, setExpanded] = useState(false)
-  const cfg = STATUS_COLORS[c.status] || STATUS_COLORS.pending
-  const isPending = c.status === 'pending'
-  const isActing  = acting === c.id
+  const cfg       = STATUS_COLORS[c.status] || STATUS_COLORS.pending
+  const isPending    = c.status === 'pending'
+  const isProcessing = c.status === 'processing'
+  const isActing     = acting === c.id
 
   return (
     <div style={{
       background: '#fff', border: '1px solid #dcd2bc', borderRadius: '14px',
       overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      borderLeft: isPending ? '3px solid #c8963c' : '1px solid #dcd2bc',
+      borderLeft: isPending ? '3px solid #c8963c' : isProcessing ? '3px solid #3b82f6' : '1px solid #dcd2bc',
     }}>
-      {/* Main row */}
       <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: '16px', cursor: 'pointer' }}
         onClick={() => setExpanded(e => !e)}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -213,7 +214,6 @@ function AdminCaseCard({ case_: c, acting, onAction }) {
         <span style={{ fontSize: '12px', color: '#9c9286', flexShrink: 0 }}>{expanded ? '▲' : '▼'}</span>
       </div>
 
-      {/* Expanded detail */}
       {expanded && (
         <div style={{ padding: '0 20px 18px', borderTop: '1px solid #f0ebe0' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', margin: '16px 0', fontSize: '13px' }}>
@@ -225,20 +225,30 @@ function AdminCaseCard({ case_: c, acting, onAction }) {
             {c.expires_at && <Detail label="Expires At" value={new Date(c.expires_at).toLocaleString('en-GB')} />}
           </div>
 
+          {/* Pending → Approve or Reject */}
           {isPending && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button
-                onClick={e => { e.stopPropagation(); onAction(c.id, 'approve') }}
-                disabled={isActing}
+              <button onClick={e => { e.stopPropagation(); onAction(c.id, 'approve') }} disabled={isActing}
                 style={{ flex: 1, padding: '10px', background: isActing ? '#5a9e7d' : '#2e6b4f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: isActing ? 'not-allowed' : 'pointer' }}>
                 {isActing ? 'Processing…' : '✓ Approve'}
               </button>
-              <button
-                onClick={e => { e.stopPropagation(); onAction(c.id, 'reject') }}
-                disabled={isActing}
+              <button onClick={e => { e.stopPropagation(); onAction(c.id, 'reject') }} disabled={isActing}
                 style={{ flex: 1, padding: '10px', background: isActing ? '#d88' : '#9c3b2c', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: isActing ? 'not-allowed' : 'pointer' }}>
                 {isActing ? 'Processing…' : '✗ Reject'}
               </button>
+            </div>
+          )}
+
+          {/* Processing → Mark Complete */}
+          {isProcessing && (
+            <div style={{ marginTop: '16px' }}>
+              <button onClick={e => { e.stopPropagation(); onAction(c.id, 'complete') }} disabled={isActing}
+                style={{ width: '100%', padding: '10px', background: isActing ? '#6366f1' : '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: isActing ? 'not-allowed' : 'pointer' }}>
+                {isActing ? 'Processing…' : '✓ Mark as Complete — Release Report'}
+              </button>
+              <p style={{ fontSize: '11px', color: '#9c9286', marginTop: '6px', textAlign: 'center' }}>
+                This will set a 24-hour access window for the requester.
+              </p>
             </div>
           )}
         </div>
