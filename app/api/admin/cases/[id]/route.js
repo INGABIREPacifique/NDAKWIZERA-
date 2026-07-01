@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSessionUser } from '@/lib/supabase-server'
 
-// PATCH /api/admin/cases/[id] — approve or reject a case
+// PATCH /api/admin/cases/[id] — approve, reject, or complete a case
 export async function PATCH(request, { params }) {
   try {
     const user = await getSessionUser()
@@ -15,19 +15,25 @@ export async function PATCH(request, { params }) {
     const { id } = await params
     const { action, note } = await request.json()
 
-    if (!['approve', 'reject'].includes(action)) {
-      return NextResponse.json({ success: false, error: 'Invalid action. Use approve or reject.' }, { status: 400 })
+    if (!['approve', 'reject', 'complete'].includes(action)) {
+      return NextResponse.json({ success: false, error: 'Invalid action. Use approve, reject, or complete.' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
 
+    const statusMap = {
+      approve:  'processing',
+      reject:   'failed',
+      complete: 'completed',
+    }
+
     const updates = {
-      status:     action === 'approve' ? 'processing' : 'failed',
+      status:     statusMap[action],
       updated_at: new Date().toISOString(),
     }
 
-    // Set 24h expiry on approval
-    if (action === 'approve') {
+    // Set 24h expiry window on approval or completion
+    if (action === 'approve' || action === 'complete') {
       updates.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     }
 
