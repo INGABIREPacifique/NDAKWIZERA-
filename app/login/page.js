@@ -7,18 +7,15 @@ import { useRouter } from 'next/navigation'
 export default function Login() {
   const router = useRouter()
   const [step, setStep]       = useState(1)
-  const [formData, setFormData] = useState({ email: '', phone: '' })
+  const [phone, setPhone]     = useState('')
   const [otp, setOtp]         = useState('')
   const [mockOtp, setMockOtp] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e) =>
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-
   const requestOTP = async () => {
-    if (!formData.email.trim() || !formData.phone.trim()) {
-      setMessage('❌ Email and phone number are both required.')
+    if (!phone.trim()) {
+      setMessage('❌ Please enter your phone number.')
       return
     }
     setLoading(true)
@@ -27,7 +24,7 @@ export default function Login() {
       const res  = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ phone }),
       })
       const data = await res.json()
       if (data.success) {
@@ -54,12 +51,19 @@ export default function Login() {
       const res  = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formData.phone, otp }),
+        body: JSON.stringify({ phone, otp }),
       })
       const data = await res.json()
       if (data.success) {
+        const role = data.user?.role
         setMessage('✅ Login successful! Redirecting…')
-        setTimeout(() => router.push('/dashboard'), 1200)
+        setTimeout(() => {
+          if (role === 'admin' || role === 'legal_reviewer') {
+            router.push('/admin')
+          } else {
+            router.push('/dashboard')
+          }
+        }, 1000)
       } else {
         setMessage('❌ ' + data.error)
       }
@@ -74,21 +78,14 @@ export default function Login() {
       minHeight: '100vh',
       background: '#0d1f3c',
       backgroundImage: 'radial-gradient(circle at 15% 0%, rgba(200,150,60,0.12), transparent 45%), radial-gradient(circle at 90% 30%, rgba(200,150,60,0.06), transparent 40%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      fontFamily: "'Inter', sans-serif",
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '20px', fontFamily: "'Inter', sans-serif",
     }}>
       <div style={{
-        maxWidth: '440px',
-        width: '100%',
-        background: '#f8f3e8',
-        borderRadius: '20px',
-        padding: '40px 36px',
+        maxWidth: '440px', width: '100%', background: '#f8f3e8',
+        borderRadius: '20px', padding: '40px 36px',
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-        position: 'relative',
-        overflow: 'hidden',
+        position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #c8963c, transparent 70%)' }} />
 
@@ -103,22 +100,15 @@ export default function Login() {
 
         {step === 1 && (
           <>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={labelStyle}>Email Address</label>
-              <input
-                type="email" name="email"
-                value={formData.email} onChange={handleChange}
-                placeholder="you@example.com"
-                style={inputStyle}
-              />
-            </div>
             <div style={{ marginBottom: '22px' }}>
               <label style={labelStyle}>Phone Number</label>
               <input
-                type="tel" name="phone"
-                value={formData.phone} onChange={handleChange}
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
                 placeholder="+250788123456"
                 style={inputStyle}
+                onKeyDown={e => e.key === 'Enter' && requestOTP()}
               />
               <p style={{ fontSize: '11px', color: '#9c9286', marginTop: '4px' }}>
                 A 6-digit verification code will be sent to this number
@@ -147,7 +137,7 @@ export default function Login() {
               </div>
               <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#10203c', margin: '0 0 4px' }}>Verify Your Identity</h3>
               <p style={{ fontSize: '13px', color: '#6b6256', margin: 0 }}>
-                6-digit code sent to <b>{formData.phone}</b>
+                6-digit code sent to <b>{phone}</b>
               </p>
             </div>
 
@@ -166,6 +156,7 @@ export default function Login() {
               type="text" value={otp}
               onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="000000" maxLength={6}
+              onKeyDown={e => e.key === 'Enter' && verifyOTP()}
               style={{ ...inputStyle, fontSize: '22px', textAlign: 'center', letterSpacing: '6px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '16px' }}
             />
             <button onClick={verifyOTP} disabled={loading} style={btnGreen(loading)}>
