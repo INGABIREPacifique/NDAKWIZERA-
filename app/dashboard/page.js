@@ -15,15 +15,12 @@ const STATUS_CONFIG = {
 export default function DashboardPage() {
   const router = useRouter()
   const { cases, loading, error, fetch: loadCases } = useCases()
-  const [user, setUser] = useState(null)
+  const [user, setUser]         = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => {
-      if (r.status === 401) {
-        router.replace('/login')
-        return null
-      }
+      if (r.status === 401) { router.replace('/login'); return null }
       return r.json()
     }).then(data => {
       if (data?.user) setUser(data.user)
@@ -37,12 +34,14 @@ export default function DashboardPage() {
     router.replace('/login')
   }
 
+  const isStaff      = user?.role === 'admin' || user?.role === 'legal_reviewer'
   const activeCases  = cases.filter(c => !c.is_expired && c.status !== 'expired')
   const expiredCases = cases.filter(c => c.is_expired || c.status === 'expired')
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8f3e8', fontFamily: "'Inter', sans-serif" }}>
 
+      {/* Nav */}
       <div style={{ background: '#10203c', borderBottom: '1px solid rgba(200,150,60,0.2)', padding: '0 20px' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -54,16 +53,24 @@ export default function DashboardPage() {
                 / {user.fullName}
               </span>
             )}
+            {isStaff && (
+              <span style={{ fontSize: '11px', color: '#c8963c', fontFamily: "'JetBrains Mono', monospace", background: 'rgba(200,150,60,0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                {user.role === 'admin' ? 'ADMIN' : 'REVIEWER'}
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={() => router.push('/request')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isStaff && (
+              <button onClick={() => router.push('/admin')}
+                style={{ padding: '8px 14px', background: 'rgba(200,150,60,0.15)', color: '#c8963c', border: '1px solid rgba(200,150,60,0.3)', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                Admin Panel →
+              </button>
+            )}
+            <button onClick={() => router.push('/request')}
               style={{ padding: '8px 16px', background: '#a3742a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               + New Request
             </button>
-            <button
-              onClick={handleLogout}
-              disabled={loggingOut}
+            <button onClick={handleLogout} disabled={loggingOut}
               style={{ padding: '8px 14px', background: 'transparent', color: '#8d97b6', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
               {loggingOut ? '…' : 'Log out'}
             </button>
@@ -85,19 +92,17 @@ export default function DashboardPage() {
         )}
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#9c9286', fontSize: '14px' }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#9c9286' }}>
             <div style={{ width: '28px', height: '28px', border: '3px solid #dcd2bc', borderTopColor: '#a3742a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             Loading your cases…
-            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           </div>
         )}
 
         {error && (
           <div style={{ background: '#f1e3df', border: '1px solid #e2bab3', borderRadius: '12px', padding: '16px', color: '#9c3b2c', fontSize: '13px', marginBottom: '20px' }}>
             {error} —{' '}
-            <button onClick={loadCases} style={{ color: '#9c3b2c', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-              Retry
-            </button>
+            <button onClick={loadCases} style={{ color: '#9c3b2c', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Retry</button>
           </div>
         )}
 
@@ -105,11 +110,8 @@ export default function DashboardPage() {
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
             <h3 style={{ fontFamily: "'Fraunces', serif", color: '#10203c', marginBottom: '6px' }}>No cases yet</h3>
-            <p style={{ color: '#9c9286', fontSize: '14px', marginBottom: '24px' }}>
-              Submit your first verification request to get started.
-            </p>
-            <button
-              onClick={() => router.push('/request')}
+            <p style={{ color: '#9c9286', fontSize: '14px', marginBottom: '24px' }}>Submit your first verification request to get started.</p>
+            <button onClick={() => router.push('/request')}
               style={{ padding: '12px 24px', background: '#a3742a', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
               Submit a Request
             </button>
@@ -162,13 +164,14 @@ function CaseCard({ case_: c, router }) {
       padding: '18px 20px', display: 'flex', alignItems: 'flex-start',
       justifyContent: 'space-between', gap: '16px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      borderLeft: isViewable ? '3px solid #2e6b4f' : '1px solid #dcd2bc',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: '#10203c' }}>
             {c.case_code}
           </span>
-          <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: cfg.bg, color: cfg.color, letterSpacing: '0.03em' }}>
+          <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: cfg.bg, color: cfg.color }}>
             {cfg.label}
           </span>
         </div>
@@ -187,11 +190,11 @@ function CaseCard({ case_: c, router }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, alignItems: 'flex-end' }}>
         {isViewable && (
           <button onClick={() => router.push(`/report/${c.id}`)}
-            style={{ padding: '8px 14px', background: '#2e6b4f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-            View Report
+            style={{ padding: '9px 16px', background: '#2e6b4f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            📄 View Report
           </button>
         )}
         {c.is_expired && (
@@ -200,8 +203,14 @@ function CaseCard({ case_: c, router }) {
             Re-request
           </button>
         )}
-        {c.status === 'pending' && !c.is_expired && (
-          <span style={{ fontSize: '11px', color: '#9c9286', textAlign: 'right' }}>Processing…</span>
+        {(c.status === 'pending' || c.status === 'processing') && !c.is_expired && (
+          <span style={{ fontSize: '11px', color: '#9c9286' }}>In review…</span>
+        )}
+        {c.status === 'failed' && (
+          <button onClick={() => router.push('/request')}
+            style={{ padding: '8px 14px', background: 'transparent', color: '#9c3b2c', border: '1px solid #e2bab3', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+            Resubmit
+          </button>
         )}
       </div>
     </div>
