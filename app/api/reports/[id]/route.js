@@ -44,13 +44,34 @@ export async function GET(request, { params }) {
 
     // Expiry check
     if (caseRow.expires_at && new Date(caseRow.expires_at) < new Date()) {
-      return NextResponse.json({ success: false, error: 'Report has expired. Please submit a new request.', expired: true }, { status: 403 })
+      return NextResponse.json({
+        success: false,
+        error: 'Report has expired. Please submit a new request.',
+        expired: true,
+      }, { status: 403 })
     }
+
+    // ── PAYMENT GATE (FR-07) ──────────────────────────────────────────────────
+    // Staff (admin / legal_reviewer) bypass payment gate for internal review.
+    // Citizens must pay before accessing the report.
+    if (!isStaff && caseRow.payment_status !== 'paid') {
+      return NextResponse.json({
+        success: false,
+        error: 'Payment required before report access.',
+        requiresPayment: true,
+        payment_status: caseRow.payment_status,
+      }, { status: 403 })
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // OTP verification (skip for staff)
     if (!isStaff) {
       if (!otp) {
-        return NextResponse.json({ success: false, error: 'OTP required to view this report.', requiresOtp: true }, { status: 403 })
+        return NextResponse.json({
+          success: false,
+          error: 'OTP required to view this report.',
+          requiresOtp: true,
+        }, { status: 403 })
       }
 
       const { data: session } = await supabase
@@ -72,23 +93,23 @@ export async function GET(request, { params }) {
       await supabase.from('auth_sessions').update({ status: 'used' }).eq('id', session.id)
     }
 
-    // Return report (in production this would include institution responses)
+    // Return report
     return NextResponse.json({
       success: true,
       report: {
-        case_code:          caseRow.case_code,
-        subject_name:       caseRow.subject_name,
+        case_code:           caseRow.case_code,
+        subject_name:        caseRow.subject_name,
         subject_national_id: caseRow.subject_national_id,
-        subject_phone:      caseRow.subject_phone,
-        subject_email:      caseRow.subject_email,
-        report_type:        caseRow.report_type,
-        institutions:       caseRow.institutions,
-        purpose:            caseRow.purpose,
-        status:             caseRow.status,
-        expires_at:         caseRow.expires_at,
-        generated_at:       caseRow.updated_at,
-        // Mock institution findings (replaced by real webhooks in Phase 3)
-        findings: generateMockFindings(caseRow),
+        subject_phone:       caseRow.subject_phone,
+        subject_email:       caseRow.subject_email,
+        report_type:         caseRow.report_type,
+        institutions:        caseRow.institutions,
+        purpose:             caseRow.purpose,
+        status:              caseRow.status,
+        payment_status:      caseRow.payment_status,
+        expires_at:          caseRow.expires_at,
+        generated_at:        caseRow.updated_at,
+        findings:            generateMockFindings(caseRow),
       },
     })
 
@@ -109,10 +130,9 @@ export async function POST(request, { params }) {
     const { id } = await params
     const supabase = createAdminClient()
 
-    // Fetch and validate case
     const { data: caseRow } = await supabase
       .from('cases')
-      .select('id, requester_id, status, expires_at')
+      .select('id, requester_id, status, payment_status, expires_at')
       .eq('id', id)
       .single()
 
@@ -125,9 +145,16 @@ export async function POST(request, { params }) {
     if (caseRow.expires_at && new Date(caseRow.expires_at) < new Date()) {
       return NextResponse.json({ success: false, error: 'Report has expired.' }, { status: 403 })
     }
+    if (caseRow.payment_status !== 'paid') {
+      return NextResponse.json({
+        success: false,
+        error: 'Payment required before report access.',
+        requiresPayment: true,
+      }, { status: 403 })
+    }
 
     const otp       = Math.floor(100000 + Math.random() * 900000).toString()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
     await supabase.from('auth_sessions').delete().eq('phone_number', user.phoneNumber)
     await supabase.from('auth_sessions').insert({
@@ -156,36 +183,36 @@ function generateMockFindings(c) {
       status: 'verified',
       data: {
         parcels_found: 1,
-        parcels: [{ parcel_id: 'RW/KIG/001/2019', location: 'Kigali, Gasabo', area_sqm: 450, registered_owner: c.subject_name, encumbrances: 'None' }]
-      }
+        parcels: [{ parcel_id: 'RW/KIG/001/2019', location: 'Kigali, Gasabo', area_sqm: 450, registered_owner: c.subject_name, encumbrances: 'None' }],
+      },
     }
   }
   if (insts.includes('RRA')) {
     findings.RRA = {
       institution: 'Rwanda Revenue Authority',
       status: 'verified',
-      data: { tax_compliance: 'Compliant', outstanding_obligations: 'None', last_filing: '2025-12' }
+      data: { tax_compliance: 'Compliant', outstanding_obligations: 'None', last_filing: '2025-12' },
     }
   }
   if (insts.includes('RNP')) {
     findings.RNP = {
       institution: 'Rwanda National Police',
       status: 'verified',
-      data: { criminal_record: 'None found', wanted_status: 'Not wanted' }
+      data: { criminal_record: 'None found', wanted_status: 'Not wanted' },
     }
   }
   if (insts.includes('RDB')) {
     findings.RDB = {
       institution: 'Rwanda Development Board',
       status: 'verified',
-      data: { businesses_registered: 0, directorships: 'None on record' }
+      data: { businesses_registered: 0, directorships: 'None on record' },
     }
   }
   if (insts.includes('CREDIT')) {
     findings.CREDIT = {
       institution: 'Credit Bureau',
       status: 'verified',
-      data: { credit_score: 'B+', active_loans: 0, loan_history: 'No defaults on record' }
+      data: { credit_score: 'B+', active_loans: 0, loan_history: 'No defaults on record' },
     }
   }
 
