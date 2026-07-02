@@ -1,25 +1,6 @@
-import { NextResponse } from 'next/server'
-
-export async function POST(request) {
-  try {
-    const { phone } = await request.json()
-    console.log('Request received for phone:', phone)
-    
-    // Generate a simple mock OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-    
-    // Just return the OTP (skip Supabase for now)
-    return NextResponse.json({ 
-      success: true, 
-      otp: otp,
-      message: 'Mock OTP generated'
-    })
-    
-  } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message 
-    })
-  }
-}
+// This file is intentionally left as a tombstone.
+// The request-otp route has been removed — it was an orphaned mock OTP
+// generator that never wrote to auth_sessions and was not called by anything.
+// Real OTP flow goes through /api/auth/signup (signup) and /api/auth/login (login).
+// DELETE THIS FILE — replaced by empty redirect marker only to trigger git diff.
+export {}
